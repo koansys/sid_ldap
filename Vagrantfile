@@ -11,7 +11,7 @@ Vagrant::Config.run do |config|
   # config.vm.box_url = "http://domain.com/path/to/above.box"
 
   # Boot with a GUI so you can see the screen. (Default is headless)
-  # config.vm.boot_mode = :gui
+  config.vm.boot_mode = :gui
 
   # Assign this VM to a host only network IP, allowing you to access it
   # via the IP.
@@ -44,10 +44,10 @@ Vagrant::Config.run do |config|
   # #               Managed by Puppet.\n"
   # # }
   #
-  # config.vm.provision :puppet do |puppet|
-  #   puppet.manifests_path = "manifests"
-  #   puppet.manifest_file  = "vagrant-0.7-centos-64-base.box.pp"
-  # end
+  config.vm.provision :puppet do |puppet|
+    puppet.manifests_path = "manifests"
+    puppet.manifest_file  = "sid_ldap.pp"
+  end
 
   # Enable provisioning with chef solo, specifying a cookbooks path (relative
   # to this Vagrantfile), and adding some recipes and/or roles.
