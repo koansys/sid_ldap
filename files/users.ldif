@@ -1,0 +1,32 @@
+dn: dc=example,dc=gov
+objectClass: dcObject
+objectClass: organization
+dc: example
+o: Example Government Agency
+
+dn: ou=People,dc=example,dc=gov
+ou: People
+objectClass: organizationalUnit
+
+dn: uid=user1,ou=People,dc=example,dc=gov
+uid: user1
+cn: User One
+displayName: User One
+givenName: User1
+sn: One
+objectClass: inetOrgPerson
+mail: user1@example.gov
+# password from slappasswd is 'user1'
+userPassword: {SSHA}WL7QUpiRgcwnJThRK/GNVgN91g/KpY2C
+
+dn: uid=user2,ou=People,dc=example,dc=gov
+uid: user2
+cn: User Two
+displayName: User Two
+givenName: User2
+sn: One
+objectClass: inetOrgPerson
+mail: user2@example.gov
+# password from slappasswd is 'user2'
+userPassword: {SSHA}sjB5fmIIPTrUUammtmonP+6DdC93+P4L
+
