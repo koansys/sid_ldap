@@ -7,6 +7,9 @@
 # - use SSL cert for LDAPS
 # - use client's real basedn
 # - see for parametric trac config generation: http://docs.puppetlabs.com/guides/templating.html
+# - mod_auth_ldap: mod_authz_ldap for yum in Centos
+# - Apache conf with auth to mod_auth_ldap
+# - restricted page requring auth
 #
 # NOTES:
 # - create rootpw with 'slappasswd'
@@ -77,6 +80,9 @@ package { ldapservers:
   ensure        => latest;
 }
 
+package { mod_authz_ldap:
+  ensure        => latest;
+}
 
 # No Centos Trac pkg? "sudo easy_install Trac"?
 #package { trac:
