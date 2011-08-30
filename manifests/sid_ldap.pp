@@ -135,3 +135,32 @@ file { 'authz_ldap.conf':
   mode          => 0644,
 }
 
+# SVN
+# Trac
+
+
+
+# clearsilver, trac...
+# easy_install trac
+
+exec { 'rpm_additions':
+  path          => ['/bin', '/usr/bin', '/usr/sbin'],
+  command       => "rpm -Uhv http://apt.sw.be/redhat/el5/en/x86_64/rpmforge/RPMS//rpmforge-release-0.3.6-1.el5.rf.x86_64.rpm",
+  logoutput     => true,
+}
+
+package { python:
+  ensure        => latest;
+}
+package { subversion:
+  ensure        => latest;
+}
+package { trac:
+  ensure        => latest;
+}
+package { mod_dav_svn:
+  ensure        => latest;
+}
+package { mod_python:
+  ensure        => latest;
+}
