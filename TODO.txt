@@ -1,0 +1,4 @@
+* Trac integration with apache
+* SVN integration with apache
+* ldaps instead of plaintext ldap to match AD server
+* use mod_wsgi instead of mod_python (from examples found on web)
