@@ -120,8 +120,18 @@ exec { 'ldapaddusers':
   command       => "ldapadd -x -D 'cn=manager,dc=example,dc=gov' -w password -f /vagrant/files/users.ldif",
   cwd           => "/vagrant/files",
   logoutput     => true,
-  unless        => ['slapcat | grep "dn: ou=People,dc=example,dc=gov"',
-                    'slapcat | grep "dn: uid=user1,ou=People,dc=example,dc=gov"',
-                    'slapcat | grep "dn: uid=user1,ou=People,dc=example,dc=gov"',
+  unless        => ['ldapsearch -x -b ou=people,dc=example,dc=gov ou=People | grep "dn: ou=People,dc=example,dc=gov"',
+                    'ldapsearch -x -b ou=people,dc=example,dc=gov uid=user1 | grep "dn: uid=user1,ou=People,dc=example,dc=gov"',
+                    'ldapsearch -x -b ou=people,dc=example,dc=gov uid=user2 | grep "dn: uid=user1,ou=People,dc=example,dc=gov"',
                     ],
 }
+
+file { 'authz_ldap.conf':
+  name          => '/etc/httpd/conf.d/authz_ldap.conf',
+  ensure        => present,
+  source        => '/vagrant/files/authz_ldap.conf',
+  owner         => root,
+  group         => root,
+  mode          => 0644,
+}
+
