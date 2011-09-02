@@ -34,11 +34,9 @@ class rpmupdate {
   exec { 'rpm_additions':
     # TODO: don't do this if we already did it
     command       => "rpm -Uhv --force http://apt.sw.be/redhat/el5/en/x86_64/rpmforge/RPMS/rpmforge-release-0.5.2-2.el5.rf.x86_64.rpm",
-    logoutput   => true,
   }
   exec { 'yumupdate':
     command     => "yum update -y",
-    logoutput     => true
   }
 }
 
@@ -154,6 +152,21 @@ class trac {
   }
 }
 
+class svn_instance {
+  exec { 'mkdir -p /tmp/svn': }
+  exec { 'svnadmin create /tmp/svn/project1':
+    require     => Class["subversion"]
+  }
+}
+
+class trac_instance {
+  exec { 'mkdir -p /tmp/trac': }
+  exec { "trac-admin /tmp/trac/project1 initenv 'Project 1' sqlite:db/trac.db svn /tmp/svn/project1":
+    require     => [Class["trac"],Class["svn_instance"]]
+  }
+}
+
+
 # something hosed in the puppet indentation here:
 
 exec { 'ldapaddusers':
@@ -174,7 +187,7 @@ class { "rpmupdate": stage => "update" }
 class { "python":       stage => "pre" }
 class { "emacs":        stage => "pre" } # not really needed anywhere special
 
-class centos {
+class sid {
   include rpmupdate
   include apache
   include emacs
@@ -182,4 +195,9 @@ class centos {
   include subversion
   include python
   include trac
+  include svn_instance
+  include trac_instance
 }
+
+include sid
+
