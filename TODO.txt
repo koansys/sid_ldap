@@ -1,4 +1,16 @@
-* Trac integration with apache
+======
+ TODO
+======
+
 * SVN integration with apache
 * ldaps instead of plaintext ldap to match AD server
-* use mod_wsgi instead of mod_python (from examples found on web)
+* use mod_wsgi for Trac instead of mod_python since that's what we
+  have in production mod_python (from examples found on web)
+* HTTP Basic can't 'logout' of Trac effectively; but we already have
+  this issue, or is it solved?
+
+
+Done
+====
+
+* Trac integration with apache

@@ -144,29 +144,77 @@ class python {
   }
 }
 class trac {
-  package { trac:
+  # The Trac package uses mod_python and expects instance in /var/trac
+  # We adjust the supplied file to use LDAP.
+  package { 'trac':
     require     => Class["python"];
   }
-  package { mod_python:
+  package { 'mod_python':
     require       => [Class["apache"],Class["python"]];
   }
+  file { '/etc/httpd/conf.d/trac.conf':
+    ensure      => present,
+    source      => '/vagrant/files/trac.conf',
+    owner       => 'root',
+    group       => 'root',
+    mode        => '0644',
+    }
 }
 
 class svn_instance {
-  exec { 'mkdir -p /tmp/svn': }
-  exec { 'svnadmin create /tmp/svn/project1':
+  exec { 'mkdir -p /var/svn': }
+  exec { 'svnadmin create /var/svn/project1':
+    unless      => 'test -d /var/svn/project1',
     require     => Class["subversion"]
+  }
+  file { '/var/svn/project1/db':
+    ensure      => directory,
+    owner       => 'apache',
+    group       => 'apache',
+    mode        => '0664',
+    recurse     => true,
   }
 }
 
 class trac_instance {
-  exec { 'mkdir -p /tmp/trac': }
-  exec { "trac-admin /tmp/trac/project1 initenv 'Project 1' sqlite:db/trac.db svn /tmp/svn/project1":
+  exec { 'mkdir -p /var/trac': }
+  exec { "trac-admin /var/trac/project1 initenv 'Project 1' sqlite:db/trac.db svn /var/svn/project1":
+    unless      => 'test -d /var/trac/project1',
     require     => [Class["trac"],Class["svn_instance"]]
+  }
+  file { '/var/trac/project1/db':
+    ensure      => directory,
+    owner       => 'apache',
+    group       => 'apache',
+    mode        => '0664',
+    recurse     => true,
+  }
+  file { '/var/trac/project1/attachments':
+    ensure      => directory,
+    owner       => 'apache',
+    group       => 'apache',
+    mode        => '0664',
+    recurse     => true,
   }
 }
 
-
+# class trac_mod_wsgi {
+#   file { '/var/trac/trac.wsgi':
+#       ensure        => present,
+#       source        => '/vagrant/files/trac.wsgi',
+#       owner         => root,
+#       group         => root,
+#       mode          => 0644,
+#     }
+#   file { '/var/trac/trac.wsgi':
+#       ensure        => present,
+#       source        => '/vagrant/files/trac.wsgi',
+#       owner         => root,
+#       group         => root,
+#       mode          => 0644,
+#     }
+# }
+  
 # something hosed in the puppet indentation here:
 
 exec { 'ldapaddusers':
@@ -183,7 +231,7 @@ exec { 'ldapaddusers':
                   }
 
 
-class { "rpmupdate": stage => "update" }
+class { "rpmupdate":    stage => "update" }
 class { "python":       stage => "pre" }
 class { "emacs":        stage => "pre" } # not really needed anywhere special
 
