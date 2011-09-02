@@ -14,153 +14,172 @@
 # NOTES:
 # - create rootpw with 'slappasswd'
 # - create users and passwords with ... what?
+# - run 'facter' on VM to find the facts puppet knows, like ${::operatingsystem}
 ###############################################################################
 
+# Defaults
 
-# Run 'facter' on VM to find the facts puppet knows; samples:
-file { vars:
-  ensure => file,
-  path => "/tmp/vars",
-  mode => 0644,
-  content => "hostname=${::hostname} operatingsystem=${::operatingsystem} fqdn=${::fqdn} domain=${::domain} ipaddress=${::ipaddress}",
+Exec { path             => ['/bin', '/usr/bin', '/usr/sbin'] }
+Package { ensure        => latest }
+
+# When
+
+stage { "update": before        => Stage["pre"] }
+stage { "pre": before           => Stage["main"] }
+
+# Components
+
+class rpmupdate {
+  # centos/rhel only :-(
+  exec { 'rpm_additions':
+    # TODO: don't do this if we already did it
+    command       => "rpm -Uhv --force http://apt.sw.be/redhat/el5/en/x86_64/rpmforge/RPMS/rpmforge-release-0.5.2-2.el5.rf.x86_64.rpm",
+    logoutput   => true,
+  }
+  exec { 'yumupdate':
+    command     => "yum update -y",
+    logoutput     => true
+  }
 }
 
-$apache = $operatingsystem ? {
-  /(?i)(centos|redhat)/ => 'httpd',
-  /(?i)(ubuntu|debian)/ => "apache2",
-  default               => undef,
+class apache {
+  $apache = $operatingsystem ? {
+    /(?i)(centos|redhat)/ => 'httpd',
+    /(?i)(ubuntu|debian)/ => "apache2",
+    default               => undef,
+  }
+  package { apache:
+    name          => $apache,
+  }
+  service { httpd:
+    ensure => running,
+  }
 }
 
-$emacs = $operatingsystem ? {
-  /(?i)(centos|redhat)/ => 'emacs-nox',
-  /(?i)(ubuntu|debian)/ => "emacs-nox11",
-  default               => undef,
+
+class emacs {
+  $emacs = $operatingsystem ? {
+    /(?i)(centos|redhat)/ => 'emacs-nox',
+    /(?i)(ubuntu|debian)/ => "emacs-nox11",
+    default               => undef,
+  }
+  package { emacs:
+    name          => $emacs,
+    ensure        => latest;
+  }
 }
 
-$ldapdev = $operatingsystem ? {
-  /(?i)(centos|redhat)/ => 'openldap-devel',
-  /(?i)(ubuntu|debian)/ => "openldap-devel",
-  default               => undef,
-}
+class ldap {
+  $ldapdev = $operatingsystem ? {
+    /(?i)(centos|redhat)/ => 'openldap-devel',
+    /(?i)(ubuntu|debian)/ => "openldap-devel",
+    default               => undef,
+  }
+  $ldapclients = $operatingsystem ? {
+    /(?i)(centos|redhat)/ => 'openldap-clients',
+    /(?i)(ubuntu|debian)/ => "openldap-clients",
+    default               => undef,
+  }
+  $ldapservers = $operatingsystem ? {
+    /(?i)(centos|redhat)/ => 'openldap-servers',
+    /(?i)(ubuntu|debian)/ => "openldap-servers",
+    default               => undef,
+  }
+  package { ldapdev:
+    name          => $ldapdev,
+  }
+  package { ldapclients:
+    name          => $ldapclients,
+  }
+  package { ldapservers:
+    name          => $ldapservers,
+  }
+  package { mod_authz_ldap:
+    require     => Class["apache"]
+  }
 
-$ldapclients = $operatingsystem ? {
-  /(?i)(centos|redhat)/ => 'openldap-clients',
-  /(?i)(ubuntu|debian)/ => "openldap-clients",
-  default               => undef,
-}
+  service { ldap:
+    # process is called 'slapd' but we need its /etc/init.d/ldap name
+    ensure        => running,
+    enable        => true,
+    subscribe     => File['slapd.conf']
+  }
 
-$ldapservers = $operatingsystem ? {
-  /(?i)(centos|redhat)/ => 'openldap-servers',
-  /(?i)(ubuntu|debian)/ => "openldap-servers",
-  default               => undef,
-}
-
-package { apache:
-  name          => $apache,
-  ensure        => latest;
-}
-
-package { emacs:
-  name          => $emacs,
-  ensure        => latest;
-}
-
-package { ldapdev:
-  name          => $ldapdev,
-  ensure        => latest;
-}
-
-package { ldapclients:
-  name          => $ldapclients,
-  ensure        => latest;
-}
-
-package { ldapservers:
-  name          => $ldapservers,
-  ensure        => latest;
-}
-
-package { mod_authz_ldap:
-  ensure        => latest;
+  # Centos runs this as user 'ldap' group 'ldap'
+  # The source relies on Vagrant mounting its dir on target as /vagrant.
+  file { 'slapd.conf':
+    name          => '/etc/openldap/slapd.conf',
+    ensure        => present,
+    source        => '/vagrant/files/slapd.conf',
+    owner         => root,
+    group         => ldap,
+    mode          => 0640,
+  }
+  file { 'authz_ldap.conf':
+    name          => '/etc/httpd/conf.d/authz_ldap.conf',
+    ensure        => present,
+    source        => '/vagrant/files/authz_ldap.conf',
+    owner         => root,
+    group         => root,
+    mode          => 0644,
+  }
 }
 
 # No Centos Trac pkg? "sudo easy_install Trac"?
 #package { trac:
-#  ensure => installed;
+  #  ensure => installed;
 #}
+# clearsilver, trac...
+# easy_install trac
 
-service { httpd:
-  ensure => running,
+class subversion {
+  package { subversion:
+  }
+  package { mod_dav_svn:
+    require     => Class["apache"]
+  }
 }
 
-# process is called 'slapd' but we need its /etc/init.d/ldap name
-service { ldap:
-  ensure        => running,
-  enable        => true,
-  subscribe     => File['slapd.conf']
+class python {
+  package { python:
+    ensure        => latest;
+  }
+}
+class trac {
+  package { trac:
+    require     => Class["python"];
+  }
+  package { mod_python:
+    require       => [Class["apache"],Class["python"]];
+  }
 }
 
-# Centos runs this as user 'ldap' group 'ldap'
-# The source relies on Vagrant mounting its dir on target as /vagrant.
-file { 'slapd.conf':
-  name          => '/etc/openldap/slapd.conf',
-  ensure        => present,
-  source        => '/vagrant/files/slapd.conf',
-  owner         => root,
-  group         => ldap,
-  mode          => 0640,
-}
-
-# Add initial organization and test users.
-# I believe we need to run as root to use 'slapcat'.
-# TODO: require service ldap/slapd
+# something hosed in the puppet indentation here:
 
 exec { 'ldapaddusers':
-  path          => ['/bin', '/usr/bin', '/usr/sbin'],
+  # Add initial organization and test users.
+  # I believe we need to run as root to use 'slapcat'.
+  # TODO: require service ldap/slapd
   command       => "ldapadd -x -D 'cn=manager,dc=example,dc=gov' -w password -f /vagrant/files/users.ldif",
   cwd           => "/vagrant/files",
   logoutput     => true,
   unless        => ['ldapsearch -x -b ou=people,dc=example,dc=gov ou=People | grep "dn: ou=People,dc=example,dc=gov"',
                     'ldapsearch -x -b ou=people,dc=example,dc=gov uid=user1 | grep "dn: uid=user1,ou=People,dc=example,dc=gov"',
-                    'ldapsearch -x -b ou=people,dc=example,dc=gov uid=user2 | grep "dn: uid=user1,ou=People,dc=example,dc=gov"',
-                    ],
-}
-
-file { 'authz_ldap.conf':
-  name          => '/etc/httpd/conf.d/authz_ldap.conf',
-  ensure        => present,
-  source        => '/vagrant/files/authz_ldap.conf',
-  owner         => root,
-  group         => root,
-  mode          => 0644,
-}
-
-# SVN
-# Trac
+                    'ldapsearch -x -b ou=people,dc=example,dc=gov uid=user2 | grep "dn: uid=user1,ou=People,dc=example,dc=gov"'
+                    ];
+                  }
 
 
+class { "rpmupdate": stage => "update" }
+class { "python":       stage => "pre" }
+class { "emacs":        stage => "pre" } # not really needed anywhere special
 
-# clearsilver, trac...
-# easy_install trac
-
-exec { 'rpm_additions':
-  path          => ['/bin', '/usr/bin', '/usr/sbin'],
-  command       => "rpm -Uhv http://apt.sw.be/redhat/el5/en/x86_64/rpmforge/RPMS//rpmforge-release-0.3.6-1.el5.rf.x86_64.rpm",
-  logoutput     => true,
-}
-
-package { python:
-  ensure        => latest;
-}
-package { subversion:
-  ensure        => latest;
-}
-package { trac:
-  ensure        => latest;
-}
-package { mod_dav_svn:
-  ensure        => latest;
-}
-package { mod_python:
-  ensure        => latest;
+class centos {
+  include rpmupdate
+  include apache
+  include emacs
+  include ldap
+  include subversion
+  include python
+  include trac
 }
