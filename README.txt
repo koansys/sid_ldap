@@ -53,3 +53,10 @@ found. It appears /etc/yum.repos.d/elff.repo and its cache in
 download.elff.bravenet.com which appears to prefer to be called
 download.bravehost.com.  Work around this by moving the repo spec and
 removing the cache in the Puppet manifest.
+
+Testing Login
+=============
+
+LDAP is configured here with two users, 'user1' and 'user2'; their
+password is identical to their user name.  Use these to verify Trac
+authentication works.

@@ -194,25 +194,22 @@ class svn_instance {
 
 class trac_instance {
   exec { 'mkdir -p /var/trac': }
-  exec { "trac-admin /var/trac/project1 initenv 'Project 1' sqlite:db/trac.db svn /var/svn/project1":
+  exec { 'trac_create_project1':
+    command     => "trac-admin /var/trac/project1 initenv 'Project 1' sqlite:db/trac.db svn /var/svn/project1",
     unless      => 'test -d /var/trac/project1',
-    require     => [Class["trac"],Class["svn_instance"]]
+    require     => [Class["trac"],Class["svn_instance"]],
   }
-  # I thought this directory creation was supposed to be recursive,
-  # why do I need to explicitely create each level?
-  file { '/var/trac/project1':
-    ensure      => directory,
-    owner       => 'apache',
-    group       => 'apache',
-    mode        => '0664',
-    recurse     => true,
-  }
+  # Seems 'file' is run before 'exec' so separate out the permisisons??
+}
+
+class trac_permissions {
   file { '/var/trac/project1/db':
     ensure      => directory,
     owner       => 'apache',
     group       => 'apache',
     mode        => '0664',
     recurse     => true,
+    require     => Class["trac_instance"],
   }
   file { '/var/trac/project1/attachments':
     ensure      => directory,
@@ -220,6 +217,7 @@ class trac_instance {
     group       => 'apache',
     mode        => '0664',
     recurse     => true,
+    require     => Class["trac_instance"],
   }
 }
 
@@ -271,6 +269,7 @@ class sid {
   include trac
   include svn_instance
   include trac_instance
+  include trac_permissions
 }
 
 include sid
