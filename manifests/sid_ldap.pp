@@ -24,10 +24,27 @@ Package { ensure        => latest }
 
 # When
 
+stage { "fixrepos": before      => Stage["update"] }
 stage { "update": before        => Stage["pre"] }
 stage { "pre": before           => Stage["main"] }
 
 # Components
+
+class fixrepos {
+  # I don't know where this repo spec came from
+  # but Bravenet doesn't have what we need now.
+  # We may need an updated VM with a different repo spec.
+  # NOTE: THESE DO NOT APPEAR TO BE EXECUTED IN ORDER?
+  exec { 'bravenet-hide':
+    command     => "mv /etc/yum.repos.d/elff.repo /etc/yum.repos.d/elff.repo.NOTFOUND || echo ELFF.REPO HIDDEN",
+  }
+  exec { 'bravenet-uncache':
+    command     => "rm -rf /var/cache/yum/elff || echo RM_ELFF_REPO_CACHE",
+  }
+  exec { 'bravenet-ls':
+    command     => "ls -al /etc/yum.repos.d/",
+  }
+}
 
 class rpmupdate {
   # centos/rhel only :-(
@@ -49,6 +66,10 @@ class apache {
   package { apache:
     name          => $apache,
   }
+  package { mod_authz_ldap:
+    require     => Class["ldap"]
+  }
+  # no file /etc/httpd/modules/mod_authz_ldap.so
   service { httpd:
     ensure => running,
   }
@@ -92,17 +113,12 @@ class ldap {
   package { ldapservers:
     name          => $ldapservers,
   }
-  package { mod_authz_ldap:
-    require     => Class["apache"]
-  }
-
   service { ldap:
     # process is called 'slapd' but we need its /etc/init.d/ldap name
     ensure        => running,
     enable        => true,
     subscribe     => File['slapd.conf']
   }
-
   # Centos runs this as user 'ldap' group 'ldap'
   # The source relies on Vagrant mounting its dir on target as /vagrant.
   file { 'slapd.conf':
@@ -182,6 +198,15 @@ class trac_instance {
     unless      => 'test -d /var/trac/project1',
     require     => [Class["trac"],Class["svn_instance"]]
   }
+  # I thought this directory creation was supposed to be recursive,
+  # why do I need to explicitely create each level?
+  file { '/var/trac/project1':
+    ensure      => directory,
+    owner       => 'apache',
+    group       => 'apache',
+    mode        => '0664',
+    recurse     => true,
+  }
   file { '/var/trac/project1/db':
     ensure      => directory,
     owner       => 'apache',
@@ -230,12 +255,13 @@ exec { 'ldapaddusers':
                     ];
                   }
 
-
+class { "fixrepos":     stage => "fixrepos" }
 class { "rpmupdate":    stage => "update" }
 class { "python":       stage => "pre" }
 class { "emacs":        stage => "pre" } # not really needed anywhere special
 
 class sid {
+  include fixrepos
   include rpmupdate
   include apache
   include emacs
