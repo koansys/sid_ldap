@@ -24,9 +24,14 @@ Package { ensure        => latest }
 
 # When
 
-stage { "fixrepos": before      => Stage["update"] }
-stage { "update": before        => Stage["pre"] }
+stage { "fixrepos": before      => Stage["rpmupdate"] }
+stage { "rpmupdate": before     => Stage["pre"] }
 stage { "pre": before           => Stage["main"] }
+
+class { "fixrepos":     stage => "fixrepos" }
+class { "rpmupdate":    stage => "rpmupdate" }
+class { "python":       stage => "pre" }
+
 
 # Components
 
@@ -40,9 +45,11 @@ class fixrepos {
   }
   exec { 'bravenet-uncache':
     command     => "rm -rf /var/cache/yum/elff || echo RM_ELFF_REPO_CACHE",
+    require     => Exec['bravenet-hide'],
   }
   exec { 'bravenet-ls':
     command     => "ls -al /etc/yum.repos.d/",
+    require     => Exec['bravenet-uncache'],
   }
 }
 
@@ -64,14 +71,15 @@ class apache {
     default               => undef,
   }
   package { apache:
-    name          => $apache,
+    name        => $apache,
   }
   package { mod_authz_ldap:
     require     => Class["ldap"]
   }
   # no file /etc/httpd/modules/mod_authz_ldap.so
   service { httpd:
-    ensure => running,
+    ensure      => running,
+    require     => Package['apache'],
   }
 }
 
@@ -178,10 +186,13 @@ class trac {
 }
 
 class svn_instance {
-  exec { 'mkdir -p /var/svn': }
-  exec { 'svnadmin create /var/svn/project1':
+  file { '/var/svn':
+    ensure      => directory,
+  }
+  exec { 'svnadmin_create':
+    command     => 'svnadmin create /var/svn/project1',
     unless      => 'test -d /var/svn/project1',
-    require     => Class["subversion"]
+    require     => [File['/var/svn'], Class["subversion"]]
   }
   file { '/var/svn/project1/db':
     ensure      => directory,
@@ -189,27 +200,26 @@ class svn_instance {
     group       => 'apache',
     mode        => '0664',
     recurse     => true,
+    require     => Exec['svnadmin_create'],
   }
 }
 
 class trac_instance {
-  exec { 'mkdir -p /var/trac': }
+  file { '/var/trac':
+    ensure      => directory,
+  }
   exec { 'trac_create_project1':
     command     => "trac-admin /var/trac/project1 initenv 'Project 1' sqlite:db/trac.db svn /var/svn/project1",
     unless      => 'test -d /var/trac/project1',
-    require     => [Class["trac"],Class["svn_instance"]],
+    require     => [File['/var/trac'], Class["trac"], Class["svn_instance"]],
   }
-  # Seems 'file' is run before 'exec' so separate out the permisisons??
-}
-
-class trac_permissions {
   file { '/var/trac/project1/db':
     ensure      => directory,
     owner       => 'apache',
     group       => 'apache',
     mode        => '0664',
     recurse     => true,
-    require     => Class["trac_instance"],
+    require     => Exec["trac_create_project1"],
   }
   file { '/var/trac/project1/attachments':
     ensure      => directory,
@@ -217,7 +227,7 @@ class trac_permissions {
     group       => 'apache',
     mode        => '0664',
     recurse     => true,
-    require     => Class["trac_instance"],
+    require     => Exec["trac_create_project1"],
   }
 }
 
@@ -237,7 +247,7 @@ class trac_permissions {
 #       mode          => 0644,
 #     }
 # }
-  
+
 # something hosed in the puppet indentation here:
 
 exec { 'ldapaddusers':
@@ -250,13 +260,10 @@ exec { 'ldapaddusers':
   unless        => ['ldapsearch -x -b ou=people,dc=example,dc=gov ou=People | grep "dn: ou=People,dc=example,dc=gov"',
                     'ldapsearch -x -b ou=people,dc=example,dc=gov uid=user1 | grep "dn: uid=user1,ou=People,dc=example,dc=gov"',
                     'ldapsearch -x -b ou=people,dc=example,dc=gov uid=user2 | grep "dn: uid=user1,ou=People,dc=example,dc=gov"'
-                    ];
-                  }
+                    ],
+  require       => Class['ldap'],
+}
 
-class { "fixrepos":     stage => "fixrepos" }
-class { "rpmupdate":    stage => "update" }
-class { "python":       stage => "pre" }
-class { "emacs":        stage => "pre" } # not really needed anywhere special
 
 class sid {
   include fixrepos
@@ -269,8 +276,7 @@ class sid {
   include trac
   include svn_instance
   include trac_instance
-  include trac_permissions
 }
 
 include sid
-
+#class {'sid': }                 # do it, alt to include form

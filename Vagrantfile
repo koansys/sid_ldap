@@ -1,3 +1,4 @@
+# -*- ruby -*-
 # Create CentOS RedHat-like box with LDAP, Apache, Trac to test LDAP auth for Trac.
 # After creation my local filesystem has some mounts on the vbox:
 # - v-root on /vagrant type vboxsf (uid=500,gid=501,rw)
@@ -30,6 +31,7 @@ Vagrant::Config.run do |config|
   config.vm.provision :puppet do |puppet|
     puppet.manifests_path = "manifests"
     puppet.manifest_file  = "sid_ldap.pp"
+    puppet.options        = "--verbose --debug"
   end
 
 end
