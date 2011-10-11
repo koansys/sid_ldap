@@ -77,6 +77,7 @@ class apache {
     require     => Class["ldap"]
   }
   # no file /etc/httpd/modules/mod_authz_ldap.so
+  # TODO: restart on changes to /etc/httpd.conf.d/*
   service { httpd:
     ensure      => running,
     require     => Package['apache'],
@@ -167,6 +168,7 @@ class python {
     ensure        => latest;
   }
 }
+
 class trac {
   # The Trac package uses mod_python and expects instance in /var/trac
   # We adjust the supplied file to use LDAP.
@@ -182,6 +184,24 @@ class trac {
     owner       => 'root',
     group       => 'root',
     mode        => '0644',
+    }
+}
+
+class apache_svn {
+  # Integrate SVN with Apache; svn repos under /var/svn/.
+  # package { 'trac':
+  #   require     => Class["python"];
+  # }
+  # package { 'mod_python':
+  #   require       => [Class["apache"],Class["python"]];
+  # }
+  file { '/etc/httpd/conf.d/svn.conf':
+    ensure      => present,
+    source      => '/vagrant/files/svn.conf',
+    owner       => 'root',
+    group       => 'root',
+    mode        => '0644',
+    require     => Class['subversion'],
     }
 }
 
@@ -274,6 +294,7 @@ class sid {
   include subversion
   include python
   include trac
+  include apache_svn
   include svn_instance
   include trac_instance
 }
